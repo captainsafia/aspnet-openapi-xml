@@ -1,0 +1,14 @@
+{
+  "name": "ASP.NET OpenAPI XML",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "ms-dotnettools.csharp",
+    "ms-vscode.vscode-node-azure-pack"
+  ],
+  "postCreateCommand": "dotnet restore"
+}
