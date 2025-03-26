@@ -1,14 +1,18 @@
 {
   "name": "ASP.NET OpenAPI XML",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "settings": {
-    "terminal.integrated.shell.linux": "/bin/bash"
-  },
-  "extensions": [
-    "ms-dotnettools.csharp",
-    "ms-vscode.vscode-node-azure-pack"
-  ],
-  "postCreateCommand": "dotnet restore"
+    "build": {
+        "dockerfile": "./Dockerfile",
+        "context": "."
+    },
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-dotnettools.csdevkit",
+				"humao.rest-client",
+				"42Crunch.vscode-openapi",
+				"stoplight.spectral",
+				"ms-dotnettools.dotnet-interactive-vscode"
+			]
+		}
+	}
 }
