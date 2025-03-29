@@ -65,26 +65,23 @@ Since the functionality is implemented as a source generator, to turn off XML do
 
 ## Implementation Notes
 
-> [!NOTE]
-> The implementation described here is open-source and can be found in the [ASP.NET Core repo](https://github.com/dotnet/aspnetcore/tree/f3555640d3b0d049856947c4f2bd0b869adf5c5e/src/OpenApi/gen).
+The source generator implementation is open-source and can be found in the [ASP.NET Core repository](https://github.com/dotnet/aspnetcore/tree/main/src/OpenApi/gen).
 
-Several times in this document, I've mentioned that the XML documentation feature is implemented as a source generator. How does all this work?
+The XML documentation feature is implemented as a source generator. The source generator analyzes XML documentation comments at compile time and injects code that translates these comments into OpenAPI metadata. The [`XmlCommentGenerator`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.cs,30eb0aa73ef6306a) extracts XML comments from two sources:
 
-The `XmlCommentGenerator` extracts XML comments from two sources:
+* XML documentation files passed as `AdditionalFiles` via a [`ParseXmlFile`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.Parser.cs,f7dff3af661aebc2) implementation.
+* XML comments from the target assembly's own code via a [`ParseCompilation`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.Parser.cs,45358a4d0fff76ac) implementation.
 
-* XML documentation files passed as `AdditionalFiles` via a `ParseXmlFile` implementation
-* XML comments from the target assembly's own code via a `ParseCompilation` implementation
-
-The distinction between these two sources is important. XML documentation files passed as `AdditionalFiles` are static. XML comments from the target assembly come from Roslyn's `XmlDocumentationCommentProvider` which provides enhanced functionality for connecting an XML comment to the compilation symbol's that it is associated with. This has implications for the way `<inheritdoc />` resolution happens in the implementation. We'll get more into this later.
-
+The distinction between these two sources is important. XML documentation files passed as `AdditionalFiles` are static. XML comments from the target assembly come from Roslyn's <!-- review `XmlDocumentationCommentProvider`--> [XML documentation comments provider](https://github.com/dotnet/roslyn/blob/main/src/Compilers/Core/Portable/MetadataReference/PortableExecutableReference.cs#L48-L62). The XML documentation comments provider enhances functionality for connecting an XML comment to the compilation symbol's that it's associated with. This has implications for the way `<inheritdoc />` resolution happens in the implementation, discussed in the next section.
 
 XML comments are parsed into structured `XmlComment` objects with:
-* Summary, description, remarks, returns, value sections
-* Parameter documentation with name, description, examples
-* Response documentation with status codes and descriptions
-* Support for examples and deprecated markers
 
-The `XmlComment` class processes XML documentation tags like: `<c>`, `<code>`, `<list>`, `<para>`, `<paramref>`, `<typeparamref>`, `<see>`, and `<seealso>`. For XML documentation tags that use references to other elements, like `<see cref="SomeOtherType">`, the implementation strips out the XML tag and maps the reference to plain text for inclusion in the OpenAPI document.
+* Summary, description, remarks, returns, value sections.
+* Parameter documentation with name, description, examples.
+* Response documentation with status codes and descriptions.
+* Support for examples and deprecated markers.
+
+The `XmlComment` class processes [XML documentation tags](https://learn.microsoft.com/dotnet/csharp/language-reference/xmldoc/recommended-tags) like: `<c>`, `<code>`, `<list>`, `<para>`, `<paramref>`, `<typeparamref>`, `<see>`, and `<seealso>`. For XML documentation tags that use references to other elements, like `<see cref="SomeOtherType">`, the implementation strips out the XML tag and maps the reference to plain text for inclusion in the OpenAPI document.
 
 ### Support for `<inheritdoc/>`
 
