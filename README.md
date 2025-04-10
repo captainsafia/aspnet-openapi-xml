@@ -67,6 +67,8 @@ Since the functionality is implemented as a source generator, to turn off XML do
 
 The source generator implementation is open-source and can be found in the [ASP.NET Core repository](https://github.com/dotnet/aspnetcore/tree/main/src/OpenApi/gen).
 
+The source generator uses the [C# compiler's interceptor](/dotnet/csharp/whats-new/csharp-12#interceptors) feature to detect calls to `AddOpenApi` and automatically injects the XML documentation transformers.
+
 The XML documentation feature is implemented as a source generator. The source generator analyzes XML documentation comments at compile time and injects code that translates these comments into OpenAPI metadata. The [`XmlCommentGenerator`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.cs,30eb0aa73ef6306a) extracts XML comments from two sources:
 
 * XML documentation files passed as `AdditionalFiles` via a [`ParseXmlFile`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.Parser.cs,f7dff3af661aebc2) implementation.
