@@ -83,6 +83,13 @@ XML comments are parsed into structured `XmlComment` objects with:
 
 The `XmlComment` class processes [XML documentation tags](https://learn.microsoft.com/dotnet/csharp/language-reference/xmldoc/recommended-tags) like: `<c>`, `<code>`, `<list>`, `<para>`, `<paramref>`, `<typeparamref>`, `<see>`, and `<seealso>`. For XML documentation tags that use references to other elements, like `<see cref="SomeOtherType">`, the implementation strips out the XML tag and maps the reference to plain text for inclusion in the OpenAPI document.
 
+The source generator uses an  [`XmlComment Cache`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L84-L96) class to identify and track API members. It create a unique identifier for each API member that encodes:
+
+* Declaring and property types.
+* Method names.
+* Generic types with proper handling of open generics.
+* Method overloads with parameter signature matching.
+
 ### Support for `<inheritdoc/>`
 
 `<inheritdoc />` tags present a unique oppurtunity because they indicate that comments must be resolved from a base class or implemented interface. The source generator uses its knowledge of the symbol's present in the compilation to discover base classes and interfaces associated with the symbol a given `<inheritdoc />` is placed on and supports resolving them automatically.
@@ -230,14 +237,6 @@ Yes, it fully supports inheriting documentation from *as long as they exist in t
 ### How are generic type parameters handled when inheriting documentation?
 
 The source generator substitutes generic type parameters in inherited documentation comments, preserving type references across inheritance boundaries.
-
-### How does the source generator identify and track API members?
-
-It uses the `MemberKey` class to create a unique identifier for each API member that encodes:
-- Declaring and property types
-- Method names
-- Generic types with proper handling of open generics
-- Method overloads with parameter signature matching
 
 ### Will the XML documentation processing impact my application's runtime performance?
 
