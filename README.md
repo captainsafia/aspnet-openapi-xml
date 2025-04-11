@@ -121,16 +121,12 @@ internal sealed record MemberKey(
 
 The generator emits code that contains:
 
-1. A cache of XML comments mapped to member identifiers:
-   ```csharp
-   _cache.Add(new MemberKey(/*...*/), new XmlComment(/*...*/));
-   ```
+* A cache of XML comments mapped to member identifiers:
+* OpenAPI transformer implementations:
+   * [`XmlCommentOperationTransformer`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L229):  Applies comments to API operations (methods).
+   * [`XmlCommentSchemaTransformer`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L308): Applies comments to data models (types).
+* Extension methods that intercept [AddOpenApi](https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.openapiservicecollectionextensions.addopenapi) calls to inject the transformers:
 
-2. OpenAPI transformer implementations:
-   - `XmlCommentOperationTransformer` - Applies comments to API operations (methods)
-   - `XmlCommentSchemaTransformer` - Applies comments to data models (types)
-
-3. Extension methods that intercept `AddOpenApi()` calls to inject the transformers:
    ```csharp
    public static IServiceCollection AddOpenApi(this IServiceCollection services)
    {
@@ -142,28 +138,32 @@ The generator emits code that contains:
    }
    ```
 
-### Interception Mechanism
+### Interception mechanism
 
-The generator uses the C# compiler's interceptor feature to intercept calls to the `AddOpenApi` method. It:
-1. Detects different `AddOpenApi` overloads
-2. Generates appropriate interceptor methods for each variant
-3. Adds the XML comment transformers to the OpenAPI options
+The generator uses the C# compiler's interceptor feature to intercept calls to the [AddOpenApi](https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.openapiservicecollectionextensions.addopenapi) method. The generator:
 
-When the interceptor runs, it adds the XML-specific transformers first then applies any transformers the user has registered in their application code. This allows user transformers to inspect metadata that has been automatically set by the source generated transformer implementations.
+1. Detects different `AddOpenApi` overloads.
+2. Generates appropriate interceptor methods for each overload.
+3. Adds the XML comment transformers to the OpenAPI options.
 
-### Runtime Behavior
+When the interceptor runs, it:
+
+1. Adds the XML-specific transformers.
+1. Applies any transformers the user has registered in their application code. This allows user transformers to inspect metadata that has been automatically set by the source generated transformer implementations.
+
+### Runtime behavior
 
 When the generated code runs:
 
-1. The XML comment cache is populated on first use with structured comment data
-2. The intercepted `AddOpenApi` methods add the transformers to the OpenAPI options
+1. The XML comment cache is populated on first use with structured comment data.
+2. The intercepted `AddOpenApi` methods add the transformers to the OpenAPI options.
 3. During API documentation generation, the transformers:
-   - Look up documentation for API methods and apply summaries, descriptions, etc.
-   - Apply parameter documentation to OpenAPI parameters
-   - Set response descriptions based on XML documentation
-   - Include examples when provided in the XML
+   * Look up documentation for API methods and apply summaries, descriptions, etc.
+   * Apply parameter documentation to OpenAPI parameters.
+   * Set response descriptions based on XML documentation.
+   * Include [examples](#add-examples) when provided in the XML.
 
-This allows developers to write standard XML comments in their code and have them automatically appear in the generated OpenAPI documentation without any additional configuration code.
+The generator processes standard XML code comments and adds them to the generated OpenAPI documentation.
 
 ## Frequently Asked Questions
 
@@ -173,11 +173,11 @@ The feature automatically extracts XML documentation comments from your code and
 
 ### How does the XML documentation support work?
 
-It uses a C# source generator (`XmlCommentGenerator`) that analyzes XML documentation at compile time and injects code that translates these comments into OpenAPI specification metadata.
+It uses a C# source generator, [`XmlCommentGenerator`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.cs,30eb0aa73ef6306a), that analyzes XML documentation at compile time and injects code that translates those comments into OpenAPI specification metadata.
 
 ### Why is this implemented as a source generator?
 
-Source generators allow us to implement AoT-compatible resolution of inheritdoc references in XML comments.
+Source generators allow us to implement [AOT](/aspnet/core/fundamentals/native-aot) compatible resolution of [`inheritdoc`](/dotnet/csharp/language-reference/xmldoc/recommended-tags) references in XML comments. This means that XML documentation comments can be resolved at compile time, allowing for better performance and reduced runtime overhead.
 
 ### How do I enable XML documentation in my ASP.NET Core API project?
 
