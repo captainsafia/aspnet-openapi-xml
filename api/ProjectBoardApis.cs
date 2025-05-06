@@ -24,11 +24,11 @@ public static class ProjectBoardApis
             .WithOpenApi();
 
         // Project Board endpoints
-        boardGroup.MapGet("/", GetAllProjectBoards);
-        boardGroup.MapGet("/{id}", GetProjectBoardById);
-        boardGroup.MapPost("/", CreateProjectBoard);
-        boardGroup.MapPut("/{id}", UpdateProjectBoard);
-        boardGroup.MapDelete("/{id}", DeleteProjectBoard);
+        boardGroup.MapGet("/", GetAllProjectBoards).Produces(200);
+        boardGroup.MapGet("/{id}", GetProjectBoardById).Produces(200).Produces(404);
+        boardGroup.MapPost("/", CreateProjectBoard).Produces(201).Produces(404);
+        boardGroup.MapPut("/{id}", UpdateProjectBoard).Produces(204).Produces(400).Produces(404);
+        boardGroup.MapDelete("/{id}", DeleteProjectBoard).Produces(204).Produces(404);
     }
 
     /// <summary>

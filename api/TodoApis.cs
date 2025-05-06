@@ -21,11 +21,11 @@ public static class TodoApis
         var todoGroup = app.MapGroup("/api/projectboards/{boardId}/todos")
             .WithTags("Todos");
 
-        todoGroup.MapGet("/", GetAllTodos);
-        todoGroup.MapGet("/{id}", GetTodoById);
-        todoGroup.MapPost("/", CreateTodo);
-        todoGroup.MapPut("/{id}", UpdateTodo);
-        todoGroup.MapDelete("/{id}", DeleteTodo);
+        todoGroup.MapGet("/", GetAllTodos).Produces(200).Produces(404);
+        todoGroup.MapGet("/{id}", GetTodoById).Produces(200).Produces(404);
+        todoGroup.MapPost("/", CreateTodo).Produces(201).Produces(400).Produces(404);
+        todoGroup.MapPut("/{id}", UpdateTodo).Produces(204).Produces(400).Produces(404);
+        todoGroup.MapDelete("/{id}", DeleteTodo).Produces(204).Produces(404);
     }
 
     /// <summary>
