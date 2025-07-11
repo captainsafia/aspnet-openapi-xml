@@ -65,26 +65,32 @@ Since the functionality is implemented as a source generator, to turn off XML do
 
 ## Implementation Notes
 
-> [!NOTE]
-> The implementation described here is open-source and can be found in the [ASP.NET Core repo](https://github.com/dotnet/aspnetcore/tree/f3555640d3b0d049856947c4f2bd0b869adf5c5e/src/OpenApi/gen).
+The source generator implementation is open-source and can be found in the [ASP.NET Core repository](https://github.com/dotnet/aspnetcore/tree/main/src/OpenApi/gen).
 
-Several times in this document, I've mentioned that the XML documentation feature is implemented as a source generator. How does all this work?
+The source generator uses the [C# compiler's interceptor](/dotnet/csharp/whats-new/csharp-12#interceptors) feature to detect calls to `AddOpenApi` and automatically injects the XML documentation transformers.
 
-The `XmlCommentGenerator` extracts XML comments from two sources:
+The XML documentation feature is implemented as a source generator. The source generator analyzes XML documentation comments at compile time and injects code that translates these comments into OpenAPI metadata. The [`XmlCommentGenerator`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.cs,30eb0aa73ef6306a) extracts XML comments from two sources:
 
-* XML documentation files passed as `AdditionalFiles` via a `ParseXmlFile` implementation
-* XML comments from the target assembly's own code via a `ParseCompilation` implementation
+* XML documentation files passed as `AdditionalFiles` via a [`ParseXmlFile`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.Parser.cs,f7dff3af661aebc2) implementation.
+* XML comments from the target assembly's own code via a [`ParseCompilation`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.Parser.cs,45358a4d0fff76ac) implementation.
 
-The distinction between these two sources is important. XML documentation files passed as `AdditionalFiles` are static. XML comments from the target assembly come from Roslyn's `XmlDocumentationCommentProvider` which provides enhanced functionality for connecting an XML comment to the compilation symbol's that it is associated with. This has implications for the way `<inheritdoc />` resolution happens in the implementation. We'll get more into this later.
-
+The distinction between these two sources is important. XML documentation files passed as `AdditionalFiles` are static. XML comments from the target assembly come from Roslyn's <!-- review `XmlDocumentationCommentProvider`--> [XML documentation comments provider](https://github.com/dotnet/roslyn/blob/main/src/Compilers/Core/Portable/MetadataReference/PortableExecutableReference.cs#L48-L62). The XML documentation comments provider enhances functionality for connecting an XML comment to the compilation symbol's that it's associated with. This has implications for the way `<inheritdoc />` resolution happens in the implementation, discussed in the next section.
 
 XML comments are parsed into structured `XmlComment` objects with:
-* Summary, description, remarks, returns, value sections
-* Parameter documentation with name, description, examples
-* Response documentation with status codes and descriptions
-* Support for examples and deprecated markers
 
-The `XmlComment` class processes XML documentation tags like: `<c>`, `<code>`, `<list>`, `<para>`, `<paramref>`, `<typeparamref>`, `<see>`, and `<seealso>`. For XML documentation tags that use references to other elements, like `<see cref="SomeOtherType">`, the implementation strips out the XML tag and maps the reference to plain text for inclusion in the OpenAPI document.
+* Summary, description, remarks, returns, value sections.
+* Parameter documentation with name, description, examples.
+* Response documentation with status codes and descriptions.
+* Support for examples and deprecated markers.
+
+The `XmlComment` class processes [XML documentation tags](https://learn.microsoft.com/dotnet/csharp/language-reference/xmldoc/recommended-tags) like: `<c>`, `<code>`, `<list>`, `<para>`, `<paramref>`, `<typeparamref>`, `<see>`, and `<seealso>`. For XML documentation tags that use references to other elements, like `<see cref="SomeOtherType">`, the implementation strips out the XML tag and maps the reference to plain text for inclusion in the OpenAPI document.
+
+The source generator uses an  [`XmlComment Cache`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L84-L96) class to identify and track API members. It create a unique identifier for each API member that encodes:
+
+* Declaring and property types.
+* Method names.
+* Generic types with proper handling of open generics.
+* Method overloads with parameter signature matching.
 
 ### Support for `<inheritdoc/>`
 
@@ -115,16 +121,12 @@ internal sealed record MemberKey(
 
 The generator emits code that contains:
 
-1. A cache of XML comments mapped to member identifiers:
-   ```csharp
-   _cache.Add(new MemberKey(/*...*/), new XmlComment(/*...*/));
-   ```
+* A cache of XML comments mapped to member identifiers:
+* OpenAPI transformer implementations:
+   * [`XmlCommentOperationTransformer`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L229):  Applies comments to API operations (methods).
+   * [`XmlCommentSchemaTransformer`](https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.Emitter.cs#L308): Applies comments to data models (types).
+* Extension methods that intercept [AddOpenApi](https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.openapiservicecollectionextensions.addopenapi) calls to inject the transformers:
 
-2. OpenAPI transformer implementations:
-   - `XmlCommentOperationTransformer` - Applies comments to API operations (methods)
-   - `XmlCommentSchemaTransformer` - Applies comments to data models (types)
-
-3. Extension methods that intercept `AddOpenApi()` calls to inject the transformers:
    ```csharp
    public static IServiceCollection AddOpenApi(this IServiceCollection services)
    {
@@ -136,28 +138,32 @@ The generator emits code that contains:
    }
    ```
 
-### Interception Mechanism
+### Interception mechanism
 
-The generator uses the C# compiler's interceptor feature to intercept calls to the `AddOpenApi` method. It:
-1. Detects different `AddOpenApi` overloads
-2. Generates appropriate interceptor methods for each variant
-3. Adds the XML comment transformers to the OpenAPI options
+The generator uses the C# compiler's interceptor feature to intercept calls to the [AddOpenApi](https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.openapiservicecollectionextensions.addopenapi) method. The generator:
 
-When the interceptor runs, it adds the XML-specific transformers first then applies any transformers the user has registered in their application code. This allows user transformers to inspect metadata that has been automatically set by the source generated transformer implementations.
+1. Detects different `AddOpenApi` overloads.
+2. Generates appropriate interceptor methods for each overload.
+3. Adds the XML comment transformers to the OpenAPI options.
 
-### Runtime Behavior
+When the interceptor runs, it:
+
+1. Adds the XML-specific transformers.
+1. Applies any transformers the user has registered in their application code. This allows user transformers to inspect metadata that has been automatically set by the source generated transformer implementations.
+
+### Runtime behavior
 
 When the generated code runs:
 
-1. The XML comment cache is populated on first use with structured comment data
-2. The intercepted `AddOpenApi` methods add the transformers to the OpenAPI options
+1. The XML comment cache is populated on first use with structured comment data.
+2. The intercepted `AddOpenApi` methods add the transformers to the OpenAPI options.
 3. During API documentation generation, the transformers:
-   - Look up documentation for API methods and apply summaries, descriptions, etc.
-   - Apply parameter documentation to OpenAPI parameters
-   - Set response descriptions based on XML documentation
-   - Include examples when provided in the XML
+   * Look up documentation for API methods and apply summaries, descriptions, etc.
+   * Apply parameter documentation to OpenAPI parameters.
+   * Set response descriptions based on XML documentation.
+   * Include [examples](#add-examples) when provided in the XML.
 
-This allows developers to write standard XML comments in their code and have them automatically appear in the generated OpenAPI documentation without any additional configuration code.
+The generator processes standard XML code comments and adds them to the generated OpenAPI documentation.
 
 ## Frequently Asked Questions
 
@@ -167,11 +173,11 @@ The feature automatically extracts XML documentation comments from your code and
 
 ### How does the XML documentation support work?
 
-It uses a C# source generator (`XmlCommentGenerator`) that analyzes XML documentation at compile time and injects code that translates these comments into OpenAPI specification metadata.
+It uses a C# source generator, [`XmlCommentGenerator`](https://source.dot.net/#Microsoft.AspNetCore.OpenApi.SourceGenerators/XmlCommentGenerator.cs,30eb0aa73ef6306a), that analyzes XML documentation at compile time and injects code that translates those comments into OpenAPI specification metadata.
 
 ### Why is this implemented as a source generator?
 
-Source generators allow us to implement AoT-compatible resolution of inheritdoc references in XML comments.
+Source generators allow us to implement [AOT](/aspnet/core/fundamentals/native-aot) compatible resolution of [`inheritdoc`](/dotnet/csharp/language-reference/xmldoc/recommended-tags) references in XML comments. This means that XML documentation comments can be resolved at compile time, allowing for better performance and reduced runtime overhead.
 
 ### How do I enable XML documentation in my ASP.NET Core API project?
 
@@ -233,14 +239,6 @@ Yes, it fully supports inheriting documentation from *as long as they exist in t
 ### How are generic type parameters handled when inheriting documentation?
 
 The source generator substitutes generic type parameters in inherited documentation comments, preserving type references across inheritance boundaries.
-
-### How does the source generator identify and track API members?
-
-It uses the `MemberKey` class to create a unique identifier for each API member that encodes:
-- Declaring and property types
-- Method names
-- Generic types with proper handling of open generics
-- Method overloads with parameter signature matching
 
 ### Will the XML documentation processing impact my application's runtime performance?
 
