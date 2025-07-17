@@ -1,4 +1,5 @@
 using Api;
+using Models;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,5 +17,6 @@ if (app.Environment.IsDevelopment())
 app.Map("/", () => Results.Redirect("/scalar/v1"));
 app.MapProjectBoardApis();
 app.MapTodoApis();
+app.MapGoalsApis();
 
 app.Run();
